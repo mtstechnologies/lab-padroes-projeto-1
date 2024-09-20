@@ -1,10 +1,16 @@
 package com.br.mts.service.impl;
 
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.br.mts.model.Cliente;
+import com.br.mts.model.ClienteRepository;
+import com.br.mts.model.Endereco;
+import com.br.mts.model.EnderecoRepository;
 import com.br.mts.service.ClienteService;
+import com.br.mts.service.ViaCepService;
 
 /***
  * Implementacao da <b>Strategy</b> {@link ClienteService}, a qual pode ser
@@ -16,43 +22,65 @@ import com.br.mts.service.ClienteService;
 @Service
 public class ClienteServiceImpl implements ClienteService{
 	
-	//TODO Singleton: Injetar os componentes do spring com @Autowired.
-	//TODO Strategy: Implementar os metodos definidos na interface.
-	//TODO Facade: Abstrair integracoes com subsistemas, promovendo uma interface simples.
+	//Singleton: Injetar os componentes do spring com @Autowired.
+	@Autowired
+	private ClienteRepository clienteRepository;
+	@Autowired
+	private EnderecoRepository enderecoRepository;
+	@Autowired
+	private ViaCepService viaCepService;
+	
+	//Strategy: Implementar os metodos definidos na interface.
+	//Facade: Abstrair integracoes com subsistemas, promovendo uma interface simples.
 
 	@Override
 	public Iterable<Cliente> buscarTodos() {
-		// FIXME buscar todos os Clientes.
-		return null;
+		return clienteRepository.findAll();
 	}
 
 	@Override
 	public Cliente buscarPorId(Long id) {
-		// FIXME buscar Cliente por ID.
-		return null;
+		//estou usando Optional porque ele pode ou nao retornar um cliente
+		Optional<Cliente> cliente = clienteRepository.findById(id);
+		return cliente.get();
 	}
 
 	@Override
 	public void inserir(Cliente cliente) {
-		// FIXME Verificar se o endereco do cliente ja existe (pelo CEP).
-		// FIXME Caso nao exista, integrar com o ViaCEP e persistir o retorno.
-		// FIXME Inserir Cliente, vinculando o endereco (novo ou existente).
-		
+		salvarClienteComCep(cliente);		
 	}
 
 	@Override
 	public void atualizar(Long id, Cliente cliente) {
-		// FIXME Buscar Cliente por ID, caso exista:
-		// FIXME Verificar se o endereco do cliente ja existe (pelo CEP).
-		// FIXME Caso nao exista, integrar com o ViaCEP e persistir o retorno.
-		// FIXME Alterar Cliente, vinculando o endereco (novo ou existente).
+		//Buscar Cliente por ID, caso exista:
+		Optional<Cliente> clienteBd = clienteRepository.findById(id);
+		if(clienteBd.isPresent()) {
+			salvarClienteComCep(cliente);
+		}
 		
 	}
 
 	@Override
 	public void deletar(Long id) {
-		// FIXME Deletar Cliente por ID.
+		//Deletar Cliente por ID.
+		clienteRepository.deleteById(id);
 		
 	}
+	
+	//para evitar repeticao de codigo no metodo inserir() e atualizar() aplicando o conceito  "Don't Repeat Yourself" (DRY)
+		private void salvarClienteComCep(Cliente cliente) {
+			//Verificar se o endereco do cliente ja existe (pelo CEP).
+					//enderecoRepository.findById(cliente.getEndereco().getCep()); ou posso criar uma variavel
+					String cep = cliente.getEndereco().getCep();
+					Endereco endereco = enderecoRepository.findById(cep).orElseGet(() -> {
+					//Caso nao exista, integrar com o ViaCEP e persistir o retorno.
+						Endereco novoEndereco = viaCepService.consultarCep(cep);
+						enderecoRepository.save(novoEndereco);
+						return novoEndereco;
+					});
+					cliente.setEndereco(endereco);
+					//Inserir Cliente, vinculando o endereco (novo ou existente).
+					clienteRepository.save(cliente);
+		}
 
 }
